@@ -3,8 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import LabelEncoder
 
 # Default dataset URL
 url = 'https://raw.githubusercontent.com/YBIFoundation/Dataset/main/Cancer.csv'
@@ -31,6 +32,19 @@ df = df.dropna(axis=1, how='any')
 constant_columns = [col for col in df.columns if df[col].nunique() == 1]
 df = df.drop(columns=constant_columns)
 
+# Convert categorical columns to numeric
+categorical_columns = df.select_dtypes(include=['object']).columns
+label_encoders = {}
+
+for col in categorical_columns:
+    # Check if the column contains only strings
+    if df[col].apply(lambda x: isinstance(x, str)).all():
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
+        label_encoders[col] = le
+    else:
+        st.warning(f"Column '{col}' contains non-string values and will be skipped.")
+
 # Initialize target_column and prediction_columns
 target_column = None
 prediction_columns = []
@@ -44,7 +58,7 @@ if page in ["Dataset", "Predict", "Analysis"]:
 if page == "Intro":
     st.header("Cancer Analysis and Prediction Project")
     st.write("Built by Krishna Gunjan")
-    st.write("This app allows you to upload your own cancer dataset, analyze it, and predict cancer diagnosis using Logistic Regression.")
+    st.write("This app allows you to upload your own cancer dataset, analyze it, and predict cancer diagnosis using Linear Regression.")
 
 # Dataset Page
 elif page == "Dataset":
@@ -176,7 +190,22 @@ elif page == "Predict":
         for column in prediction_columns:
             user_input[column] = st.number_input(f'Enter {column}', value=float(df[column].mean()))
 
-        # Collect user inputs into a dataframe
+        # Button to fill random data
+        # DOES NOT WORK
+        # if st.button("Fill Random Data"):
+        #     random_data = {}
+        #     for column in prediction_columns:
+        #         # Generate random values based on column data type
+        #         if df[column].dtype == 'object':  # Categorical columns
+        #             random_data[column] = np.random.choice(df[column].unique())
+        #         else:  # Numeric columns
+        #             random_data[column] = np.random.uniform(df[column].min(), df[column].max())
+        #    
+        #    # Update the input fields with random data
+        #    for column in prediction_columns:
+        #        st.session_state[column] = random_data[column]
+
+        # Display the input fields
         features = pd.DataFrame([user_input])
 
         # Button for prediction
@@ -192,15 +221,23 @@ elif page == "Predict":
                 # Split the data
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-                # Train a Logistic Regression model
-                model = LogisticRegression(max_iter=1000)
+                # Train a Linear Regression model
+                model = LinearRegression()
                 model.fit(X_train, y_train)
 
                 # Make a prediction based on user input
                 prediction = model.predict(features)
 
                 # Display the result
-                result = "Positive" if prediction[0] == 1 else "Negative"
-                st.write(f"Prediction: {result}")
+                st.write(f"Prediction: {prediction[0]:.2f}")
+
+                # Calculate performance metrics
+                y_pred = model.predict(X_test)
+                mse = mean_squared_error(y_test, y_pred)
+                r2 = r2_score(y_test, y_pred)
+
+                st.write(f"Mean Squared Error: {mse:.2f}")
+                st.write(f"R-squared: {r2:.2f}")
+
     else:
         st.write("Please select columns for prediction and a target column.")
