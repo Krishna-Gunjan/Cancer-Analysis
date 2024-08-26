@@ -1,110 +1,114 @@
-import tkinter as tk
-from tkinter import ttk
-import customtkinter as ctk
+import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
+# Default dataset URL
 url = 'https://raw.githubusercontent.com/YBIFoundation/Dataset/main/Cancer.csv'
-df = pd.read_csv(url)
 
-class CustomApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+# Define columns used for prediction and the target column globally
+prediction_columns = ['radius_mean', 'texture_mean', 'perimeter_mean', 'area_mean', 'smoothness_mean']
+target_column = 'diagnosis'
 
-        self.title("Cancer Analysis and Prediction")
-        self.geometry("1920x1080")
-        self.state('zoomed')
+# Set the title of the app
+st.title("Cancer Analysis and Prediction")
 
-        # Create a notebook 
-        self.notebook = ctk.CTkNotebook(self)
-        self.notebook.pack(fill='both', expand=True)
+# Sidebar for navigation
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Intro", "Dataset", "Analysis", "Predict"])
 
-        # Create tabs
-        self.intro_tab = ctk.CTkFrame(self.notebook)
-        self.view_tab = ctk.CTkFrame(self.notebook)
-        self.analysis_tab = ctk.CTkFrame(self.notebook)
-        self.predict_tab = ctk.CTkFrame(self.notebook)
+# Function to load the dataset
+@st.cache_data
+def load_data(uploaded_file=None):
+    if uploaded_file:
+        return pd.read_csv(uploaded_file)
+    else:
+        return pd.read_csv(url)
 
-        self.notebook.add(self.intro_tab, text="Intro")
-        self.notebook.add(self.view_tab, text="View")
-        self.notebook.add(self.analysis_tab, text="Analysis")
-        self.notebook.add(self.predict_tab, text="Predict")
+# Load the dataset globally so it can be accessed on all pages
+uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"], help="Default dataset is used if no file is uploaded.")
+df = load_data(uploaded_file)
 
-        # Intro tab
-        self.create_intro_tab()
+# Function to apply color to text based on column
+def color_text(val, column_name):
+    if column_name == target_column:
+        return 'color: green'
+    elif column_name in prediction_columns:
+        return 'color: red'
+    else:
+        return ''
 
-        # View tab
-        self.create_view_tab()
+# Function to apply the color to the entire dataframe
+def color_columns(df):
+    return df.style.applymap(lambda val: color_text(val, df.columns.name), subset=pd.IndexSlice[:, df.columns])
 
-        # Analysis tab
-        self.create_analysis_tab()
+# Intro Page
+if page == "Intro":
+    st.header("Cancer Analysis and Prediction Project")
+    st.write("Built by Krishna Gunjan")
+    st.write("This app allows you to upload your own cancer dataset, analyze it, and predict cancer diagnosis using Logistic Regression.")
 
-        # Predict tab
-        self.create_predict_tab()
+# Dataset Page
+elif page == "Dataset":
+    st.header("Dataset")
+    st.markdown("**`Green`**: Value to be predicted | **`Red`**: Values used to predict")
 
-    def create_intro_tab(self):
-        title = ctk.CTkLabel(self.intro_tab, text="Cancer Analysis and Prediction Project", font=('Arial', 24))
-        title.pack(pady=20)
-        subtitle = ctk.CTkLabel(self.intro_tab, text="Built by [Your Name]", font=('Arial', 18))
-        subtitle.pack(pady=10)
+    # Apply color to the entire dataframe based on the column
+    styled_df = df.style.map(lambda val: 'color: green', subset=[target_column])\
+                        .map(lambda val: 'color: red', subset=prediction_columns)
+    
+    st.dataframe(styled_df)
 
-    def create_view_tab(self):
-        tree = ttk.Treeview(self.view_tab, columns=list(df.columns), show='headings')
-        for col in df.columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=100)
-        tree.pack(fill='both', expand=True)
+# Analysis Page
+elif page == "Analysis":
+    st.header("Analysis")
+    st.subheader("Diagnosis Distribution")
 
-        for index, row in df.iterrows():
-            tree.insert("", tk.END, values=list(row))
+    # Plot diagnosis distribution
+    fig, ax = plt.subplots()
+    df['diagnosis'].value_counts().plot(kind='bar', ax=ax)
+    ax.set_title('Diagnosis Distribution')
+    ax.set_xlabel('Diagnosis')
+    ax.set_ylabel('Count')
+    st.pyplot(fig)
 
-    def create_analysis_tab(self):
-        figure = plt.Figure(figsize=(12, 8), dpi=100)
-        ax = figure.add_subplot(111)
-        df['diagnosis'].value_counts().plot(kind='bar', ax=ax)
-        ax.set_title('Diagnosis Distribution')
-        ax.set_xlabel('Diagnosis')
-        ax.set_ylabel('Count')
+# Predict Page
+elif page == "Predict":
+    st.header("Predict Cancer Diagnosis")
 
-        canvas = FigureCanvasTkAgg(figure, master=self.analysis_tab)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill='both', expand=True)
+    # Input fields for the features
+    radius_mean = st.number_input('Enter radius_mean', value=14.5)
+    texture_mean = st.number_input('Enter texture_mean', value=20.0)
+    perimeter_mean = st.number_input('Enter perimeter_mean', value=92.0)
+    area_mean = st.number_input('Enter area_mean', value=654.0)
+    smoothness_mean = st.number_input('Enter smoothness_mean', value=0.1)
 
-    def create_predict_tab(self):
-        self.entries = {}
-        self.labels = ['radius_mean', 'texture_mean', 'perimeter_mean', 'area_mean', 'smoothness_mean']
-        for i, label in enumerate(self.labels):
-            l = ctk.CTkLabel(self.predict_tab, text=label)
-            l.grid(row=i, column=0, padx=10, pady=5)
-            e = ctk.CTkEntry(self.predict_tab)
-            e.grid(row=i, column=1, padx=10, pady=5)
-            self.entries[label] = e
+    # Collect user inputs into a dataframe
+    features = pd.DataFrame([[radius_mean, texture_mean, perimeter_mean, area_mean, smoothness_mean]],
+                            columns=prediction_columns)
 
-        self.predict_button = ctk.CTkButton(self.predict_tab, text="Predict", command=self.predict)
-        self.predict_button.grid(row=len(self.labels), column=0, columnspan=2, pady=20)
+    # Button for prediction
+    if st.button("Predict"):
+        # Ensure that df is loaded correctly
+        if df.empty:
+            st.error("The dataset is not loaded correctly.")
+        else:
+            # Select the features and target from the dataset
+            X = df[prediction_columns]
+            y = df[target_column]
 
-        self.result_label = ctk.CTkLabel(self.predict_tab, text="")
-        self.result_label.grid(row=len(self.labels)+1, column=0, columnspan=2, pady=10)
+            # Split the data
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    def predict(self):
-        data = {label: float(entry.get()) for label, entry in self.entries.items()}
-        features = pd.DataFrame([data])
+            # Train a Logistic Regression model
+            model = LogisticRegression()
+            model.fit(X_train, y_train)
 
-        X = df[self.labels]
-        y = df['diagnosis']
+            # Make a prediction based on user input
+            prediction = model.predict(features)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        model = LogisticRegression()
-        model.fit(X_train, y_train)
-
-        prediction = model.predict(features)
-        result = "Positive" if prediction[0] == 1 else "Negative"
-        self.result_label.configure(text=f"Prediction: {result}")
-
-if __name__ == "__main__":
-    app = CustomApp()
-    app.mainloop()
+            # Display the result
+            result = "Positive" if prediction[0] == 'M' else "Negative"
+            st.write(f"Prediction: {result}")
