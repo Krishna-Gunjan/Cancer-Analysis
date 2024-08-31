@@ -1,11 +1,7 @@
 import streamlit as st
-import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import pandasql as psql
 
 # Default dataset URL
 url = 'https://raw.githubusercontent.com/YBIFoundation/Dataset/main/Cancer.csv'
@@ -15,7 +11,7 @@ st.title("Cancer Analysis and Prediction")
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Intro", "Dataset", "Analysis", "Predict"])
+page = st.sidebar.radio("Go to", ["Intro", "Dataset", "Analysis", "Predict", "SQL Query"])
 
 # Function to load the dataset
 @st.cache_data
@@ -39,6 +35,7 @@ label_encoders = {}
 for col in categorical_columns:
     # Check if the column contains only strings
     if df[col].apply(lambda x: isinstance(x, str)).all():
+        from sklearn.preprocessing import LabelEncoder
         le = LabelEncoder()
         df[col] = le.fit_transform(df[col])
         label_encoders[col] = le
@@ -50,7 +47,7 @@ target_column = None
 prediction_columns = []
 
 # Sidebar elements for selecting columns
-if page in ["Dataset", "Predict", "Analysis"]:
+if page in ["Dataset", "Predict", "Analysis", "SQL Query"]:
     target_column = st.sidebar.selectbox("Select the target column", df.columns, help="Column to be predicted.")
     prediction_columns = st.sidebar.multiselect("Select columns for prediction", [col for col in df.columns if col != target_column], help="Columns used to predict the target.")
 
@@ -126,7 +123,7 @@ elif page == "Analysis":
         if graph_type == "Histogram":
             if len(distinct_elements) > 10:
                 ax.bar(class_labels, class_counts, color='skyblue')
-                ax.set_xlim(left=min(class_labels), right=max(class_labels))
+                ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
             else:
                 data.plot(kind='hist', bins=len(distinct_elements), ax=ax, color='skyblue')
@@ -136,7 +133,7 @@ elif page == "Analysis":
         elif graph_type == "Line Chart":
             if len(distinct_elements) > 10:
                 ax.plot(class_labels, class_counts, marker='o', color='skyblue')
-                ax.set_xlim(left=min(class_labels), right=max(class_labels))
+                ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
             else:
                 data.value_counts().sort_index().plot(kind='line', marker='o', ax=ax)
@@ -146,12 +143,13 @@ elif page == "Analysis":
         elif graph_type == "Bar Chart":
             if len(distinct_elements) > 10:
                 ax.bar(class_labels, class_counts, color='skyblue')
-                ax.set_xlim(left=min(class_labels), right=max(class_labels))
+                ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
             else:
                 data.value_counts().sort_index().plot(kind='bar', ax=ax)
                 ax.set_xlim(left=min(data), right=max(data))
                 ax.set_ylim(bottom=0, top=data.value_counts().max() * 1.1)
+
 
         elif graph_type == "Pie Chart":
             # Aggregate data for pie chart if necessary
@@ -190,21 +188,6 @@ elif page == "Predict":
         for column in prediction_columns:
             user_input[column] = st.number_input(f'Enter {column}', value=float(df[column].mean()))
 
-        # Button to fill random data
-        # DOES NOT WORK
-        # if st.button("Fill Random Data"):
-        #     random_data = {}
-        #     for column in prediction_columns:
-        #         # Generate random values based on column data type
-        #         if df[column].dtype == 'object':  # Categorical columns
-        #             random_data[column] = np.random.choice(df[column].unique())
-        #         else:  # Numeric columns
-        #             random_data[column] = np.random.uniform(df[column].min(), df[column].max())
-        #    
-        #    # Update the input fields with random data
-        #    for column in prediction_columns:
-        #        st.session_state[column] = random_data[column]
-
         # Display the input fields
         features = pd.DataFrame([user_input])
 
@@ -219,9 +202,11 @@ elif page == "Predict":
                 y = df[target_column]
 
                 # Split the data
+                from sklearn.model_selection import train_test_split
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
                 # Train a Linear Regression model
+                from sklearn.linear_model import LinearRegression
                 model = LinearRegression()
                 model.fit(X_train, y_train)
 
@@ -232,6 +217,7 @@ elif page == "Predict":
                 st.write(f"Prediction: {prediction[0]:.2f}")
 
                 # Calculate performance metrics
+                from sklearn.metrics import mean_squared_error, r2_score
                 y_pred = model.predict(X_test)
                 mse = mean_squared_error(y_test, y_pred)
                 r2 = r2_score(y_test, y_pred)
@@ -241,3 +227,48 @@ elif page == "Predict":
 
     else:
         st.write("Please select columns for prediction and a target column.")
+
+elif page == "SQL Query":
+    st.header("SQL Query Execution")
+
+    # Show the entire table by default
+    st.subheader("df")
+    st.dataframe(df, height=300)
+
+    # File uploader for SQL queries
+    st.subheader("Upload SQL File")
+    sql_file = st.file_uploader("Upload a file with SQL queries (one per line)", type=["txt", "sql"])
+
+    if sql_file:
+        sql_queries = sql_file.read().decode('utf-8').splitlines()
+        for query in sql_queries:
+            if query.strip():  # Only run non-empty lines
+                try:
+                    query_result = psql.sqldf(query, locals())
+                    st.write(f"Query: `{query}`")
+                    st.dataframe(query_result)  # Display query result
+                except Exception as e:
+                    st.error(f"Syntax error in query `{query}`: {str(e)}")
+    
+    # SQL query input area with placeholder and inline submit button
+    query_input = st.text_area(
+        "Enter your SQL query...",
+        height=100,
+        placeholder="Enter your SQL query..."
+    )
+
+    # Inline submit button for running the query
+    submit_button = st.button("➔", key="run_query", use_container_width=True)
+
+    if submit_button:
+        try:
+            query_result = psql.sqldf(query_input, locals())
+
+            # Display the query and its result in sequence
+            st.markdown("### Query Result")
+            st.markdown(f"**Query:**\n```sql\n{query_input}\n```")
+            st.markdown("**Result:**")
+            st.dataframe(query_result)
+
+        except Exception as e:
+            st.error(f"Syntax error in SQL query: {str(e)}")
