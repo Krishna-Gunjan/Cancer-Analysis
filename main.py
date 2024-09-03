@@ -7,7 +7,7 @@ import pandasql as psql
 url = 'https://raw.githubusercontent.com/YBIFoundation/Dataset/main/Cancer.csv'
 
 # Set the title of the app
-st.title("Cancer Analysis and Prediction")
+st.title("Data Analyzer and Predictor")
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
@@ -32,30 +32,20 @@ df = df.drop(columns=constant_columns)
 categorical_columns = df.select_dtypes(include=['object']).columns
 label_encoders = {}
 
-for col in categorical_columns:
-    # Check if the column contains only strings
-    if df[col].apply(lambda x: isinstance(x, str)).all():
-        from sklearn.preprocessing import LabelEncoder
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col])
-        label_encoders[col] = le
-    else:
-        st.warning(f"Column '{col}' contains non-string values and will be skipped.")
-
 # Initialize target_column and prediction_columns
 target_column = None
 prediction_columns = []
 
-# Sidebar elements for selecting columns
 if page in ["Dataset", "Predict", "Analysis", "SQL Query"]:
-    target_column = st.sidebar.selectbox("Select the target column", df.columns, help="Column to be predicted.")
-    prediction_columns = st.sidebar.multiselect("Select columns for prediction", [col for col in df.columns if col != target_column], help="Columns used to predict the target.")
+    non_string_columns = df.select_dtypes(exclude=['object']).columns
+    target_column = st.sidebar.selectbox("Select the target column", non_string_columns, help="Column to be predicted.")
+    prediction_columns = st.sidebar.multiselect("Select columns for prediction", [col for col in non_string_columns if col != target_column], help="Columns used to predict the target.")
 
 # Intro Page
 if page == "Intro":
-    st.header("Cancer Analysis and Prediction Project")
-    st.write("Built by Krishna Gunjan")
-    st.write("This app allows you to upload your own cancer dataset, analyze it, and predict cancer diagnosis using Linear Regression.")
+    st.header("Data Analyzer and Predictor")
+    st.write("Built by Krishna Gunjan, Vaibhav Singh, Rana Mudasar, Ayushman Singh")
+    st.write("This app allows you to upload your own dataset, analyze it, and predict outcomes using Linear Regression.")
 
 # Dataset Page
 elif page == "Dataset":
@@ -89,7 +79,6 @@ elif page == "Dataset":
 # Analysis Page
 elif page == "Analysis":
     st.header("Analysis")
-    st.subheader("Diagnosis Distribution")
 
     graph_type = st.sidebar.selectbox("Select Graph Type", ["Line Chart", "Bar Chart", "Histogram", "Pie Chart"])
 
@@ -97,7 +86,10 @@ elif page == "Analysis":
         data = df[target_column]
         distinct_elements = data.unique()
         
-        if len(distinct_elements) > 10:
+        # Determine if we should group data into classes
+        group_into_classes = len(distinct_elements) > 10
+        
+        if group_into_classes:
             min_val = data.min()
             max_val = data.max()
             class_size = (max_val - min_val) / 10
@@ -118,10 +110,10 @@ elif page == "Analysis":
             class_counts = class_counts.values
         
         fig, ax = plt.subplots(figsize=(12, 8))
-        legend_bbox_to_anchor = (1.05, 0.5)  # Position legend outside the graph
+        legend_bbox_to_anchor = (1.05, 0.5)
 
         if graph_type == "Histogram":
-            if len(distinct_elements) > 10:
+            if group_into_classes:
                 ax.bar(class_labels, class_counts, color='skyblue')
                 ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
@@ -131,7 +123,7 @@ elif page == "Analysis":
                 ax.set_ylim(bottom=0, top=data.value_counts().max() * 1.1)
 
         elif graph_type == "Line Chart":
-            if len(distinct_elements) > 10:
+            if group_into_classes:
                 ax.plot(class_labels, class_counts, marker='o', color='skyblue')
                 ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
@@ -141,7 +133,7 @@ elif page == "Analysis":
                 ax.set_ylim(bottom=0, top=data.value_counts().max() * 1.1)
 
         elif graph_type == "Bar Chart":
-            if len(distinct_elements) > 10:
+            if group_into_classes:
                 ax.bar(class_labels, class_counts, color='skyblue')
                 ax.set_xlim(left=0, right=len(class_labels) - 1)
                 ax.set_ylim(bottom=0, top=max(class_counts) * 1.1)
@@ -152,8 +144,7 @@ elif page == "Analysis":
 
 
         elif graph_type == "Pie Chart":
-            # Aggregate data for pie chart if necessary
-            if len(distinct_elements) > 10:
+            if group_into_classes:
                 pie_sizes = class_counts
                 pie_labels = class_labels
             else:
@@ -161,10 +152,8 @@ elif page == "Analysis":
                 pie_labels = pie_sizes.index
 
             pie = ax.pie(pie_sizes, colors=plt.get_cmap('Set2').colors, startangle=90)
-            # Move legend outside the pie chart
             ax.legend(pie[0], pie_labels, loc='center left', bbox_to_anchor=legend_bbox_to_anchor, title='Categories')
 
-        # Move legend outside for other types
         if graph_type != "Pie Chart":
             ax.legend(loc='center left', bbox_to_anchor=legend_bbox_to_anchor, title='Categories')
         
@@ -172,7 +161,6 @@ elif page == "Analysis":
         ax.set_xlabel('Categories')
         ax.set_ylabel('Count')
 
-        # Adjust layout to make room for the legend
         plt.tight_layout(rect=[0, 0, 0.8, 1])
         st.pyplot(fig)
     else:
@@ -180,7 +168,7 @@ elif page == "Analysis":
 
 # Predict Page
 elif page == "Predict":
-    st.header("Predict Cancer Diagnosis")
+    st.header("Predict Outcomes using Linear Regression")
 
     if prediction_columns and target_column:
         # Input fields for the features
@@ -224,51 +212,34 @@ elif page == "Predict":
 
                 st.write(f"Mean Squared Error: {mse:.2f}")
                 st.write(f"R-squared: {r2:.2f}")
-
     else:
-        st.write("Please select columns for prediction and a target column.")
+        st.write("Please select prediction columns and a target column in the sidebar.")
 
+# SQL Query Page
 elif page == "SQL Query":
-    st.header("SQL Query Execution")
+    st.header("SQL Query")
+    st.markdown("Use SQL syntax to query the dataset.")
 
-    # Show the entire table by default
-    st.subheader("df")
-    st.dataframe(df, height=300)
+    st.write("**Database Information:**")
+    st.write(f"- **Table name:** `df`")
+    st.write(f"- **Columns:** {', '.join(df.columns)}")
 
-    # File uploader for SQL queries
-    st.subheader("Upload SQL File")
-    sql_file = st.file_uploader("Upload a file with SQL queries (one per line)", type=["txt", "sql"])
-
-    if sql_file:
-        sql_queries = sql_file.read().decode('utf-8').splitlines()
-        for query in sql_queries:
-            if query.strip():  # Only run non-empty lines
-                try:
-                    query_result = psql.sqldf(query, locals())
-                    st.write(f"Query: `{query}`")
-                    st.dataframe(query_result)  # Display query result
-                except Exception as e:
-                    st.error(f"Syntax error in query `{query}`: {str(e)}")
+    query = st.text_area("Enter your SQL query:", height=100, placeholder="SELECT * FROM df LIMIT 10;")
+    run_query = st.button("Run Query")
     
-    # SQL query input area with placeholder and inline submit button
-    query_input = st.text_area(
-        "Enter your SQL query...",
-        height=100,
-        placeholder="Enter your SQL query..."
-    )
-
-    # Inline submit button for running the query
-    submit_button = st.button("➔", key="run_query", use_container_width=True)
-
-    if submit_button:
+    if run_query:
         try:
-            query_result = psql.sqldf(query_input, locals())
-
-            # Display the query and its result in sequence
-            st.markdown("### Query Result")
-            st.markdown(f"**Query:**\n```sql\n{query_input}\n```")
-            st.markdown("**Result:**")
-            st.dataframe(query_result)
-
+            query_result = psql.sqldf(query, locals())
+            st.write(query_result)
         except Exception as e:
-            st.error(f"Syntax error in SQL query: {str(e)}")
+            st.error(f"Error: {str(e)}")
+
+    st.write("Default query example: `SELECT * FROM df LIMIT 10;`")
+
+    st.markdown(
+        """
+        **Notes:**
+        - Ensure your SQL syntax is correct.
+        - The table name to use is `df`.
+        """
+    )
