@@ -26,7 +26,7 @@ This project is a Streamlit-based web application that allows users to analyze a
 1. **Clone the repository:**
 
     ```bash
-    git clone https://github.com/yourusername/cancer-analysis-prediction.git
+    git clone https://github.com/Krishna-Gunjan/Cancer-Analysis.git
     cd cancer-analysis-prediction
     ```
 
