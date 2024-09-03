@@ -41,7 +41,7 @@ This project is a Streamlit-based web application that allows users to analyze a
 3. **Run the Streamlit application:**
 
     ```bash
-    streamlit run app.py
+    streamlit run main.py
     ```
 
 ## Usage
@@ -67,7 +67,7 @@ This project is a Streamlit-based web application that allows users to analyze a
 
 ## Project Structure
 
-- **app.py:** Main application file containing all the Streamlit components and logic.
+- **main.py:** Main application file containing all the Streamlit components and logic.
 - **README.md:** Project documentation.
 - **requirements.txt:** Python dependencies.
 
