@@ -26,8 +26,8 @@ This project is a Streamlit-based web application that allows users to analyze a
 1. **Clone the repository:**
 
     ```bash
-    git clone https://github.com/yourusername/cancer-analysis-prediction.git
-    cd cancer-analysis-prediction
+    git clone https://github.com/Krishna-Gunjan/Cancer-Analysis.git
+    cd Cancer-Analysis
     ```
 
 2. **Install dependencies:**
@@ -41,7 +41,7 @@ This project is a Streamlit-based web application that allows users to analyze a
 3. **Run the Streamlit application:**
 
     ```bash
-    streamlit run app.py
+    streamlit run main.py
     ```
 
 ## Usage
@@ -67,7 +67,7 @@ This project is a Streamlit-based web application that allows users to analyze a
 
 ## Project Structure
 
-- **app.py:** Main application file containing all the Streamlit components and logic.
+- **main.py:** Main application file containing all the Streamlit components and logic.
 - **README.md:** Project documentation.
 - **requirements.txt:** Python dependencies.
 
