@@ -20,23 +20,35 @@ def load_data(uploaded_file=None):
         return pd.read_csv(uploaded_file)
     else:
         return pd.read_csv(url)
-
-# Load the dataset globally so it can be accessed on all pages
+# Load and preprocess the dataset globally
 uploaded_file = st.sidebar.file_uploader("Upload your CSV dataset", type=["csv"], help="Default dataset is used if no file is uploaded.")
 df = load_data(uploaded_file)
+
+# Drop columns with all missing values or constant values
 df = df.dropna(axis=1, how='any')
 constant_columns = [col for col in df.columns if df[col].nunique() == 1]
 df = df.drop(columns=constant_columns)
 
-# Convert categorical columns to numeric
+# Convert 'diagnosis' column from string to numeric (0 : NEGATIVE and 1: POSITIVE)
+if 'diagnosis' in df.columns:
+    df['diagnosis'] = df['diagnosis'].map({'M': 1, 'B': 0})
+
+# Convert other categorical columns to numeric using label encoding
 categorical_columns = df.select_dtypes(include=['object']).columns
 label_encoders = {}
+for col in categorical_columns:
+    if col != 'diagnosis':  # Skip 'diagnosis' as it is already processed
+        from sklearn.preprocessing import LabelEncoder
+        label_encoders[col] = LabelEncoder()
+        df[col] = label_encoders[col].fit_transform(df[col])
 
 # Initialize target_column and prediction_columns
 target_column = None
 prediction_columns = []
 
+# Sidebar options for target and prediction columns
 if page in ["Dataset", "Predict", "Analysis", "SQL Query"]:
+    # Allow only non-string columns for target and prediction
     non_string_columns = df.select_dtypes(exclude=['object']).columns
     target_column = st.sidebar.selectbox("Select the target column", non_string_columns, help="Column to be predicted.")
     prediction_columns = st.sidebar.multiselect("Select columns for prediction", [col for col in non_string_columns if col != target_column], help="Columns used to predict the target.")
